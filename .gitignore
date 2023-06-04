@@ -1,0 +1,6 @@
+__pycache__/
+venv/
+train/
+test/
+submission/
+model/
