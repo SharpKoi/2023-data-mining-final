@@ -8,35 +8,18 @@ from transformers.data.data_collator import DataCollatorMixin
 
 class TrainingDataset(torch.utils.data.Dataset):
     def __init__(self, 
-                 news: pd.DataFrame, 
-                 behaviors: pd.DataFrame, 
-                 tokenizer: Callable, 
+                 news_inputs: Dict[str, Any], 
+                 behaviors: pd.DataFrame,
                  max_clicks: int, 
                  max_text_len: int,
                  seed=None):
-        self.news: pd.DataFrame = news
+        self.news_inputs = news_inputs
         self.behaviors: pd.DataFrame = behaviors
-        self.tokenizer = tokenizer
         
         self.max_clicks = max_clicks
         self.max_text_len = max_text_len
         
         random.seed(seed)
-
-        self.init_tokenization()
-
-    def init_tokenization(self):
-        news_enc = dict()
-        for news_id, row in tqdm(self.news.iterrows(), total=len(self.news)):
-            title, abstract = row['title'], row['abstract']
-            news_enc[news_id] = \
-                self.tokenizer(title, abstract, 
-                               padding='max_length', 
-                               max_length=self.max_text_len, 
-                               truncation=True, 
-                               return_tensors='pt')
-        
-        self.news_enc = news_enc
         
     def __len__(self):
         return len(self.behaviors)
@@ -47,12 +30,12 @@ class TrainingDataset(torch.utils.data.Dataset):
         candidate_ids, is_clicked = list(zip(*[imp.split('-') for imp in impressions.split()]))
         is_clicked = torch.tensor([int(b) for b in is_clicked], dtype=torch.float32)
         
-        clicks_enc_list = [self.news_enc[k] for k in clicked_ids]
+        clicked_news_inputs = [self.news_inputs[k] for k in clicked_ids]
         
         short = self.max_clicks - len(clicked_ids)
         if short >= 0:
             # padding with all-zero attention masks
-            clicks_enc_list.extend([
+            clicked_news_inputs.extend([
                 dict(
                     input_ids=torch.ones(1, self.max_text_len, dtype=torch.int32), 
                     attention_mask=torch.zeros(1, self.max_text_len, dtype=torch.int32)
@@ -61,23 +44,23 @@ class TrainingDataset(torch.utils.data.Dataset):
             ])
         else:
             # randomly sample `max_clicks` news from all clicked news
-            clicks_enc_list = random.sample(clicks_enc_list, self.max_clicks)
+            clicked_news_inputs = random.sample(clicked_news_inputs, self.max_clicks)
 
-        clicks_enc = {
-            'input_ids': torch.cat([enc['input_ids'] for enc in clicks_enc_list]), 
-            'attention_mask': torch.cat([enc['attention_mask'] for enc in clicks_enc_list])
+        clicked_news_inputs = {
+            'input_ids': torch.cat([enc['input_ids'] for enc in clicked_news_inputs]), 
+            'attention_mask': torch.cat([enc['attention_mask'] for enc in clicked_news_inputs])
         }
         
-        candidates_enc_list = [self.news_enc[k] for k in candidate_ids]
+        candidate_news_inputs = [self.news_inputs[k] for k in candidate_ids]
         
-        candidates_enc = {
-            'input_ids': torch.cat([enc['input_ids'] for enc in candidates_enc_list]), 
-            'attention_mask': torch.cat([enc['attention_mask'] for enc in candidates_enc_list])
+        candidate_news_inputs = {
+            'input_ids': torch.cat([enc['input_ids'] for enc in candidate_news_inputs]), 
+            'attention_mask': torch.cat([enc['attention_mask'] for enc in candidate_news_inputs])
         }
         
         item = {
-            'clicks': clicks_enc,
-            'candidates': candidates_enc,
+            'clicks': clicked_news_inputs,
+            'candidates': candidate_news_inputs,
             'labels': is_clicked
         }
         

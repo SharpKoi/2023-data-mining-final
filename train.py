@@ -63,22 +63,39 @@ lang_model.pooler.requires_grad_(True)
 # =================== END Load Model   =================== #
 
 
+# =================== START Build Dataset =================== #
+max_text_len = 100
+
+print("Tokenizing news ...")
+news_inputs = dict()
+for news_id, row in tqdm(news_df.iterrows(), total=len(news_df)):
+    title, abstract = row['title'], row['abstract']
+    news_inputs[news_id] = \
+        tokenizer(title, abstract, 
+                  padding='max_length', 
+                  max_length=max_text_len, 
+                  truncation=True, 
+                  return_tensors='pt')
+
+
 # =================== START Training =================== #
 print("Building dataset ...")
-train_data = TrainingDataset(news_df, behav_df, tokenizer, max_clicks=50, max_text_len=100, seed=SEED)
-train_loader = torch.utils.data.DataLoader(train_data, 
-                                           batch_size=1, 
-                                           collate_fn=gather_collate)
+from sklearn.model_selection import train_test_split
 
-news_encoder = NewsEncoder(lang_model, 100)
-user_encoder = UserClicksEncoder(100, 100, attn_num_heads=4)
-model = RecommendationSystem(news_encoder, user_encoder, n_labels=15, max_clicks=train_data.max_clicks)
-# model = model.to(device)
+train_behav, valid_behav = train_test_split(behav_df, test_size=0.3, random_state=SEED)
+
+train_data = TrainingDataset(news_inputs, train_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
+valid_data = TrainingDataset(news_inputs, valid_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
 
 
 print("Start training ...")
 from transformers import TrainingArguments, Trainer
 import evaluate
+
+news_encoder = NewsEncoder(lang_model, 100)
+user_encoder = UserClicksEncoder(100, 100, attn_num_heads=4)
+model = RecommendationSystem(news_encoder, user_encoder, n_labels=15, max_clicks=train_data.max_clicks)
+# model = model.to(device)
 
 metric = evaluate.load('roc_auc')
 training_args = TrainingArguments(
@@ -86,7 +103,7 @@ training_args = TrainingArguments(
     logging_strategy='epoch',
     evaluation_strategy='epoch',
     save_strategy='epoch',
-    num_train_epochs=20,
+    num_train_epochs=10,
     per_device_train_batch_size=16,
     per_device_eval_batch_size=16,
     lr_scheduler_type='linear',
@@ -102,7 +119,7 @@ trainer = Trainer(
     model=model,
     args=training_args,
     train_dataset=train_data,
-    eval_dataset=None,
+    eval_dataset=valid_data,
     data_collator=NewsGatherCollator(),
     compute_metrics=metric
 )
