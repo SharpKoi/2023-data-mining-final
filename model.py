@@ -64,7 +64,7 @@ class RecommendationSystem(nn.Module):
         candidates_vecs = self.news_encoder(**candidates)
         candidates_vecs = candidates_vecs.view(-1, self.n_labels, candidates_vecs.size(-1))  # divide to Bx15xD
         
-        outputs = torch.matmul(candidates_vecs, user_vec.transpose(1, 2))  # Bx15x1
+        outputs = torch.matmul(candidates_vecs, user_vec.transpose(1, 2)).view(-1, self.n_labels)  # Bx15
         
         loss = None
         if labels is not None:

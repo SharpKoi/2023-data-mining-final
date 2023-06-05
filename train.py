@@ -1,3 +1,4 @@
+import os
 import random
 from dataclasses import dataclass
 import numpy as np
@@ -12,6 +13,8 @@ from model import *
 
 
 # ========= START Configure Environment ========= #
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 SEED = 101
 
 random.seed(SEED)
@@ -82,7 +85,7 @@ for news_id, row in tqdm(news_df.iterrows(), total=len(news_df)):
 print("Building dataset ...")
 from sklearn.model_selection import train_test_split
 
-train_behav, valid_behav = train_test_split(behav_df, test_size=0.3, random_state=SEED)
+train_behav, valid_behav = train_test_split(behav_df[:1000], test_size=0.3, random_state=SEED)
 
 train_data = TrainingDataset(news_inputs, train_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
 valid_data = TrainingDataset(news_inputs, valid_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
@@ -97,7 +100,12 @@ user_encoder = UserClicksEncoder(100, 100, attn_num_heads=4)
 model = RecommendationSystem(news_encoder, user_encoder, n_labels=15, max_clicks=train_data.max_clicks)
 # model = model.to(device)
 
-metric = evaluate.load('roc_auc')
+metric = evaluate.load('roc_auc', 'multilabel')
+
+def compute_metric(eval_pred):
+    logits, labels = eval_pred
+    return metric.compute(prediction_scores=logits, references=labels, average='samples')
+
 training_args = TrainingArguments(
     output_dir='model/',
     logging_strategy='epoch',
@@ -121,7 +129,7 @@ trainer = Trainer(
     train_dataset=train_data,
     eval_dataset=valid_data,
     data_collator=NewsGatherCollator(),
-    compute_metrics=metric
+    compute_metrics=compute_metric
 )
 
 trainer.train()
