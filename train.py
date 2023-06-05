@@ -85,7 +85,7 @@ for news_id, row in tqdm(news_df.iterrows(), total=len(news_df)):
 print("Building dataset ...")
 from sklearn.model_selection import train_test_split
 
-train_behav, valid_behav = train_test_split(behav_df[:1000], test_size=0.3, random_state=SEED)
+train_behav, valid_behav = train_test_split(behav_df, test_size=0.3, random_state=SEED)
 
 train_data = TrainingDataset(news_inputs, train_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
 valid_data = TrainingDataset(news_inputs, valid_behav, max_clicks=50, max_text_len=max_text_len, seed=SEED)
