@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from dataset import *
 from model import *
+from metric import *
 
 
 # ========= START Configure Environment ========= #
@@ -93,18 +94,11 @@ valid_data = TrainingDataset(news_inputs, valid_behav, max_clicks=50, max_text_l
 
 print("Start training ...")
 from transformers import TrainingArguments, Trainer
-import evaluate
 
 news_encoder = NewsEncoder(lang_model, 100)
 user_encoder = UserClicksEncoder(100, 100, attn_num_heads=4)
 model = RecommendationSystem(news_encoder, user_encoder, n_labels=15, max_clicks=train_data.max_clicks)
 # model = model.to(device)
-
-metric = evaluate.load('roc_auc', 'multilabel')
-
-def compute_metric(eval_pred):
-    logits, labels = eval_pred
-    return metric.compute(prediction_scores=logits, references=labels, average='samples')
 
 training_args = TrainingArguments(
     output_dir='model/',
