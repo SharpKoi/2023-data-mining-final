@@ -53,7 +53,7 @@ class RecommendationSystem(nn.Module):
         
         self.user_token_embed = nn.Parameter(torch.zeros(1, self.user_encoder.news_vec_dim, requires_grad=True))  # trainable variable
         
-    def forward(self, clicks, candidates, labels):
+    def forward(self, clicks, candidates, labels=None):
         clicks_vecs = self.news_encoder(**clicks)
         clicks_vecs = clicks_vecs.view(-1, self.max_clicks, clicks_vecs.size(-1))  # divide to BxMxD
         
