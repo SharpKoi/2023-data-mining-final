@@ -21,7 +21,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 SEED = 101
 CKPT_PATH = "model/checkpoint-98856"
 ENCODING_DIM = 100
-MAX_CLICKS = 200  # not necessarily identical with the training setting
+MAX_CLICKS = 50  # It's better to be identical with the training setting
 N_LABELS = 15
 
 random.seed(SEED)
